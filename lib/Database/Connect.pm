@@ -402,7 +402,7 @@ sub _load_sources {
   for (reverse @{$self->search_paths}) {
     next unless -d $_;
     for my $f (grep !$_->is_dir, dir($_)->children) {
-      next unless -r $f;
+      next unless $f =~ m#/[\w.+-]+$# and -r $f;
       my $config = Config::Tiny->read( $f );
       $self->_set_source( $_, { %{$$config{$_}} } ) for keys %$config;
     }
