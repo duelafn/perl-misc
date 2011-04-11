@@ -340,7 +340,7 @@ may also be present. Some of these parameters are treated specially:
 
 =over 4
 
-=item dbname | database | db
+=item dbname | database | db  [TYPICALLY REQUIRED]
 
 The database to connect to.
 
