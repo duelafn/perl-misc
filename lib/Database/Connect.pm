@@ -1,10 +1,9 @@
-use MooseX::Declare;
-class Database::Connect {
-use re 'taint';
+package Database::Connect;
+use Moose;
+use autodie; use re 'taint'; use 5.010;
 our $VERSION = 0.0004;# Created: 2010-03-16
 use Config::Tiny;
 use Path::Class;
-use MooseX::Types::Moose qw/Str HashRef ArrayRef/;
 
 =pod
 
@@ -141,13 +140,12 @@ $DBD_PARAMS{dbm} ||= [qw/ f_dir ext mldbm lockfile store_metadata cols /, [qw/ t
 
 
 
-# Grumble, MooseX::Declare breaks the before/around keywords
-__PACKAGE__->meta->add_before_method_modifier($_, sub {
+before [qw/ has_source sources _get_source /], sub {
   my $self = shift;
   $self->_load_sources unless $self->loaded;
-}) for qw/ has_source sources _get_source /;
+};
 
-method _build_search_paths() {
+sub _build_search_paths {
   ["/etc/databases/conf.d", "$ENV{HOME}/.databases" ]
 }
 
@@ -189,7 +187,8 @@ Use the DBIx::Schema class given to connect to the given data source.
 =cut
 
 # $source is Auto-extended via method modifier
-method dbh(HashRef $source, HashRef $dbi_opts?) {
+sub dbh {
+  my ($self, $source, $dbi_opts) = @_;
   require DBI;
   my $dbh = DBI->connect($self->dbi_args($source), $dbi_opts);
   $self->on_connect($source)->($dbh);
@@ -197,7 +196,8 @@ method dbh(HashRef $source, HashRef $dbi_opts?) {
 }
 
 # $source is Auto-extended via method modifier
-method dbic_schema_connect(HashRef $source, HashRef $dbi_opts?, Str $schema_class?) {
+sub dbic_schema_connect {
+  my ($self, $source, $dbi_opts, $schema_class) = @_;
   $schema_class ||= $self->dbic_schema($source);
   eval "require $schema_class; 1" or die $@;
   $schema_class->connect(
@@ -208,17 +208,20 @@ method dbic_schema_connect(HashRef $source, HashRef $dbi_opts?, Str $schema_clas
 }
 
 # $source is Auto-extended via method modifier
-method dsn(HashRef $source) {
+sub dsn {
+  my ($self, $source) = @_;
   sprintf "dbi:%s:%s", $self->dbd($source), $self->db_params($source);
 }
 
 # $source is Auto-extended via method modifier
-method dbi_args(HashRef $source) {
+sub dbi_args {
+  my ($self, $source) = @_;
   ($self->dsn($source), $self->username($source)//undef, $self->password($source)//undef);
 }
 
 # $source is Auto-extended via method modifier
-method on_connect_sql(HashRef $source) {
+sub on_connect_sql {
+  my ($self, $source) = @_;
   my @sql;
   if ($self->dbd($source) eq 'Pg' and $self->schema_search_path($source)) {
     push @sql, sprintf "SET search_path = '%s'", $self->schema_search_path($source);
@@ -227,7 +230,8 @@ method on_connect_sql(HashRef $source) {
 }
 
 # $source is Auto-extended via method modifier
-method on_connect(HashRef $source) {
+sub on_connect {
+  my ($self, $source) = @_;
   sub {
     my $dbh = shift;
     $dbh->do($_) for $self->on_connect_sql($source);
@@ -244,11 +248,12 @@ for (qw/ dbd username password schema_search_path dbic_schema /) {
 }
 
 # $source is Auto-extended via method modifier
-method db_params(HashRef $source) {
+sub db_params {
+  my ($self, $source) = @_;
   join ";",
     map "$$_[0]=$$_[1]",
     grep 1 < @$_,
-    map [(is_ArrayRef($_)?$$_[0]:$_), $self->_get_field($source, $_)],
+    map [('ARRAY' eq ref($_)?$$_[0]:$_), $self->_get_field($source, $_)],
     $self->_db_param_fields( $source );
 }
 
@@ -358,8 +363,9 @@ until one exists.
 =cut
 
 # $source is Auto-extended via method modifier
-method _get_field(HashRef $source, Str|ArrayRef $key) {
-  if (is_ArrayRef($key)) {
+sub _get_field {
+  my ($self, $source, $key) = @_;
+  if ('ARRAY' eq ref($key)) {
     for (@$key) {
       my @res = $self->_get_field($source, $_);
       return $res[0] if @res;
@@ -377,7 +383,8 @@ C<$source>.
 
 =cut
 
-method _db_param_fields(HashRef $source) {
+sub _db_param_fields {
+  my ($self, $source) = @_;
   my $dbd = $self->dbd($source);
   die "Unrecognized DBD '$dbd'" unless exists $DBD_PARAMS{lc $dbd};
   @{$DBD_PARAMS{lc $dbd}};
@@ -390,7 +397,8 @@ not check that sources were already loaded and does not clear existing sources.
 
 =cut
 
-method _load_sources {
+sub _load_sources {
+  my $self = shift;
   for (reverse @{$self->search_paths}) {
     next unless -d $_;
     for my $f (grep !$_->is_dir, dir($_)->children) {
@@ -403,14 +411,15 @@ method _load_sources {
 }
 
 
-__PACKAGE__->meta->add_around_method_modifier($_, sub {
+around [qw/ _get_field dbh dbi_args dsn db_params on_connect_sql on_connect dbic_schema_connect /], sub {
   my ($code, $self, $arg, @rest) = @_;
-  $arg = $self->_get_source($arg) || return unless is_HashRef($arg);
+  $arg = $self->_get_source($arg) || return unless 'HASH' eq ref($arg);
   $code->($self, $arg, @rest);
-}) for qw/ _get_field dbh dbi_args dsn db_params on_connect_sql on_connect dbic_schema_connect /;
+};
 
 
-}
+no Moose;
+__PACKAGE__->meta->make_immutable;
 
 1;
 
