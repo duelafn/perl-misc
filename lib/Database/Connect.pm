@@ -146,7 +146,9 @@ before [qw/ has_source sources _get_source /], sub {
 };
 
 sub _build_search_paths {
-  ["/etc/databases/conf.d", "$ENV{HOME}/.databases" ]
+  [ "/etc/databases/conf.d",
+    ($ENV{HOME} ? "$ENV{HOME}/.databases" : ()),
+  ]
 }
 
 
