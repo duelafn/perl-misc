@@ -39,7 +39,7 @@ Database::Connect - Connect to your databases
  __PACKAGE__->config(
    schema_class => 'MyApp::Schema::FilmDB',
    connect_info => [ $dbc->dbi_args("mydb"),
-                     { AutoCommit => 1 }
+                     { AutoCommit => 1 },
                      { on_connect_do => [ $dbc->on_connect_sql("mydb") ] },
                    ],
  );
