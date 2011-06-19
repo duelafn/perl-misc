@@ -1,7 +1,7 @@
 package Database::Connect;
 use Moose;
 use autodie; use re 'taint'; use 5.010;
-our $VERSION = 0.0004;# Created: 2010-03-16
+our $VERSION = 1.0303;# Created: 2010-03-16
 use Config::Tiny;
 use Path::Class;
 
@@ -140,7 +140,7 @@ $DBD_PARAMS{dbm} ||= [qw/ f_dir ext mldbm lockfile store_metadata cols /, [qw/ t
 
 
 
-before [qw/ has_source sources _get_source /], sub {
+before qw/ has_source sources _get_source /, sub {
   my $self = shift;
   $self->_load_sources unless $self->loaded;
 };
@@ -413,7 +413,7 @@ sub _load_sources {
 }
 
 
-around [qw/ _get_field dbh dbi_args dsn db_params on_connect_sql on_connect dbic_schema_connect /], sub {
+around qw/ _get_field dbh dbi_args dsn db_params on_connect_sql on_connect dbic_schema_connect /, sub {
   my ($code, $self, $arg, @rest) = @_;
   $arg = $self->_get_source($arg) || return unless 'HASH' eq ref($arg);
   $code->($self, $arg, @rest);
