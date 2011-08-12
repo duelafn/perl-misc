@@ -1,7 +1,7 @@
 package Database::Connect;
 use Moose;
 use autodie; use re 'taint'; use 5.010;
-our $VERSION = 1.0303;# Created: 2010-03-16
+our $VERSION = 1.0427;# Created: 2010-03-16
 use Config::Tiny;
 use Path::Class;
 
@@ -22,25 +22,26 @@ Database::Connect - Connect to your databases
  say $dbc->dsn("mydb");
 
  # Use with DBI
- my $dbh  = $dbc->dbh("mydb", { AutoCommit => 1 });
- my $dbh2 = DBI->connect( $dbc->dbi_args("mydb"), { AutoCommit => 1 } );
+ my $dbh  = $dbc->dbh("mydb");
+ my $dbh2 = DBI->connect( $dbc->dbi_args("mydb") );
  $dbc->on_connect("mydb")->($dbh2);
 
  # DBIx::Class
  my $schema  = $dbc->dbic_schema_connect("mydb");
- my $schema1 = $dbc->dbic_schema_connect("mydb", 'My::Other::Schema');
+ my $schema1 = $dbc->dbic_schema_connect("mydb", undef, 'My::Other::Schema');
  my $schema2 = MySchema->connect(
    $dbc->dbi_args("mydb"),
-   { AutoCommit => 1 },
+   { AutoCommit => 1, RaiseError => 1 },
    { on_connect_do => [ $dbc->on_connect_sql("mydb") ] },
  );
 
  # Catalyst::Model::DBIC::Schema
+ my $mydb = "mydb";
  __PACKAGE__->config(
-   schema_class => 'MyApp::Schema::FilmDB',
-   connect_info => [ $dbc->dbi_args("mydb"),
-                     { AutoCommit => 1 },
-                     { on_connect_do => [ $dbc->on_connect_sql("mydb") ] },
+   schema_class => $dbc->dbic_schema($mydb),
+   connect_info => [ $dbc->dbi_args($mydb),
+                     { AutoCommit => 1, RaiseError => 1 },
+                     { on_connect_do => [ $dbc->on_connect_sql($mydb) ] },
                    ],
  );
 
@@ -192,7 +193,7 @@ Use the DBIx::Schema class given to connect to the given data source.
 sub dbh {
   my ($self, $source, $dbi_opts) = @_;
   require DBI;
-  my $dbh = DBI->connect($self->dbi_args($source), $dbi_opts);
+  my $dbh = DBI->connect($self->dbi_args($source), $dbi_opts || { AutoCommit => 1, RaiseError => 1 });
   $self->on_connect($source)->($dbh);
   return $dbh;
 }
@@ -204,7 +205,7 @@ sub dbic_schema_connect {
   eval "require $schema_class; 1" or die $@;
   $schema_class->connect(
     $self->dbi_args($source),
-    $dbi_opts,
+    $dbi_opts || { AutoCommit => 1, RaiseError => 1 },
     { on_connect_do => [ $self->on_connect_sql($source) ] }
   );
 }
