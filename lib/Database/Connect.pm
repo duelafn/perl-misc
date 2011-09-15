@@ -1,7 +1,7 @@
 package Database::Connect;
 use Moose;
 use autodie; use re 'taint'; use 5.010;
-our $VERSION = 1.0427;# Created: 2010-03-16
+our $VERSION = 1.0529;# Created: 2010-03-16
 use Config::Tiny;
 use Path::Class;
 
@@ -25,6 +25,9 @@ Database::Connect - Connect to your databases
  my $dbh  = $dbc->dbh("mydb");
  my $dbh2 = DBI->connect( $dbc->dbi_args("mydb") );
  $dbc->on_connect("mydb")->($dbh2);
+
+ # DBIx::Simple
+ my $dbs = $dbc->dbix_simple("mydb");
 
  # DBIx::Class
  my $schema  = $dbc->dbic_schema_connect("mydb");
@@ -196,6 +199,12 @@ sub dbh {
   my $dbh = DBI->connect($self->dbi_args($source), $dbi_opts || { AutoCommit => 1, RaiseError => 1 });
   $self->on_connect($source)->($dbh);
   return $dbh;
+}
+
+sub dbix_simple {
+  my $self = shift;
+  require DBIx::Simple;
+  DBIx::Simple->connect($self->dbh(@_));
 }
 
 # $source is Auto-extended via method modifier
